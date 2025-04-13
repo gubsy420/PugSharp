@@ -9,6 +9,9 @@ using PugSharp.Match.Contract;
 using PugSharp.Models;
 using PugSharp.Server.Contract;
 
+using System.IO;
+using System.Text.Json;
+
 namespace PugSharp;
 
 public class CsServer : ICsServer
@@ -16,10 +19,15 @@ public class CsServer : ICsServer
     private readonly ILogger<CsServer> _Logger;
     private readonly ICssDispatcher _Dispatcher;
 
+    private Dictionary<string, string>? _WorkshopMapLookup;
+    private readonly string _WorkshopMapConfigPath;
+
     public CsServer(ILogger<CsServer> logger, ICssDispatcher dispatcher)
     {
         _Logger = logger;
         _Dispatcher = dispatcher;
+
+        _WorkshopMapConfigPath = Path.Combine(GameDirectory, "csgo", "PugSharp", "Config", "workshop_maps.json");
     }
 
     public string GameDirectory => CounterStrikeSharp.API.Server.GameDirectory;
@@ -210,14 +218,58 @@ public class CsServer : ICsServer
     {
         _Dispatcher.NextWorldUpdate(() =>
         {
-            if (!IsMapValid(selectedMap))
+            if (string.IsNullOrWhiteSpace(selectedMap))
+            if (string.IsNullOrWhiteSpace(selectedMap))
             {
-                _Logger.LogInformation("The selected map is not valid: \"{SelectedMap}\"!", selectedMap);
+                _Logger.LogInformation("The selected map is null or empty!");
+                _Logger.LogInformation("The selected map is null or empty!");
                 return;
             }
 
-            _Logger.LogInformation("Switch map to: \"{SelectedMap}\"!", selectedMap);
-            ExecuteCommand($"changelevel {selectedMap}");
+            // Lazy-load the workshop map config if not already loaded
+            if (_WorkshopMapLookup == null)
+            {
+                try
+                {
+                    if (File.Exists(_WorkshopMapConfigPath))
+                    {
+                        string json = File.ReadAllText(_WorkshopMapConfigPath);
+                        _WorkshopMapLookup = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                        _Logger.LogInformation("Loaded workshop map config from {Path}", _WorkshopMapConfigPath);
+                    }
+                    else
+                    {
+                        _Logger.LogWarning("Workshop map config not found at {Path}. Workshop maps will not be available.", _WorkshopMapConfigPath);
+                        _WorkshopMapLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _Logger.LogError(ex, "Failed to load workshop map config from {Path}", _WorkshopMapConfigPath);
+                    _WorkshopMapLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                }
+            }
+
+            string command;
+
+            if (_WorkshopMapLookup != null && _WorkshopMapLookup.TryGetValue(selectedMap, out var workshopId))
+            {
+                _Logger.LogInformation("Translating map \"{SelectedMap}\" to Workshop ID: {WorkshopId}", selectedMap, workshopId);
+                command = $"host_workshop_map {workshopId}";
+            }
+            else
+            {
+                if (!IsMapValid(selectedMap))
+                {
+                    _Logger.LogInformation("The selected map is not valid: \"{SelectedMap}\"!", selectedMap);
+                    return;
+                }
+
+                _Logger.LogInformation("Switching to standard map: \"{SelectedMap}\"", selectedMap);
+                command = $"changelevel {selectedMap}";
+            }
+
+            ExecuteCommand(command);
         });
     }
 
