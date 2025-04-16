@@ -112,8 +112,7 @@ public class Match : IDisposable
 #pragma warning restore MA0051 // Method is too long
     {
         _MatchStateMachine.Configure(MatchState.None)
-            .PermitDynamicIf(MatchCommand.LoadMatch, () => HasRestoredMatch() ? MatchState.RestoreMatch : MatchState.WaitingForPlayersConnectedReady)
-            .OnEntryAsync(() => _CsServer.InitializeWorkshopMapLookupAsync());
+            .PermitDynamicIf(MatchCommand.LoadMatch, () => HasRestoredMatch() ? MatchState.RestoreMatch : MatchState.WaitingForPlayersConnectedReady);
             
         _MatchStateMachine.Configure(MatchState.WaitingForPlayersConnectedReady)
             .PermitDynamicIf(MatchCommand.PlayerReady, () => HasRestoredMatch() ? MatchState.MatchRunning : MatchState.DefineTeams, AllPlayersAreReady)
@@ -762,13 +761,17 @@ public class Match : IDisposable
             mapOptions.Add(new MenuOption(map, (opt, player) => BanMap(player, mapNumber)));
         }
 
+        _Dispatcher.NextWorldUpdate(() =>
+        {
 
-        ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteMapMenuHeader)), mapOptions);
+            ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteMapMenuHeader)), mapOptions);
 
-        DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
-        DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
+            DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
+            DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
 
-        GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+            GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+
+        });
 
         _VoteTimer.Start();
     }
@@ -816,11 +819,16 @@ public class Match : IDisposable
             new("CT", (opt, player) => VoteTeam(player, "CT")),
         };
 
-        ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteTeamMenuHeader)), mapOptions);
-        GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+        _Dispatcher.NextWorldUpdate(() =>
+        {
 
-        DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
-        DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
+            ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteTeamMenuHeader)), mapOptions);
+            GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+
+            DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
+            DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
+
+        });
 
         _VoteTimer.Start();
     }
@@ -992,6 +1000,31 @@ public class Match : IDisposable
     }
 
     #region Match Functions
+
+
+    public void AssignPlayerBasedOnCurrentTeam(IPlayer player, int csTeam)
+    {
+        var playerAlreadyAssigned = MatchInfo.MatchTeam1.Players.Any(p => p.Player.SteamID == player.SteamID)
+                                || MatchInfo.MatchTeam2.Players.Any(p => p.Player.SteamID == player.SteamID);
+
+        if (playerAlreadyAssigned)
+        {
+            foreach (var p in MatchInfo.MatchTeam1.Players.Where(p => p.Player.SteamID == player.SteamID))
+                MatchInfo.MatchTeam1.Players.Remove(p);
+            foreach (var p in MatchInfo.MatchTeam2.Players.Where(p => p.Player.SteamID == player.SteamID))
+                MatchInfo.MatchTeam2.Players.Remove(p);
+        }
+
+        if (csTeam == (int)Team.Terrorist)
+        {
+            MatchInfo.MatchTeam1.Players.Add(new MatchPlayer(player));
+        }
+        else if (csTeam == (int)Team.CounterTerrorist)
+        {
+            MatchInfo.MatchTeam2.Players.Add(new MatchPlayer(player));
+        }
+    }
+
 
     private bool TryAddPlayerToCurrentTeam(IPlayer player)
     {

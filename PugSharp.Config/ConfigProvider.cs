@@ -46,6 +46,12 @@ public class ConfigProvider
                     return new Error<string>("Config couldn't be deserialized");
                 }
 
+                if (string.IsNullOrWhiteSpace(config.MatchId))
+                {
+                    config.MatchId = $"match_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+                    _Logger.LogInformation("MatchId not found in config. Assigned default: {MatchId}", config.MatchId);
+                }
+
                 _Logger.LogInformation("Successfully loaded config for match {MatchId}", config.MatchId);
                 return config;
             }

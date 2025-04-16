@@ -85,6 +85,8 @@ public class Application : IApplication
     {
         var serverConfigResult = _ConfigProvider.LoadServerConfig();
 
+        _CsServer.InitializeWorkshopMapLookupAsync();
+        
         serverConfigResult.Switch(
             error => { }, // Do nothing - Error already logged
             serverConfig =>
@@ -268,13 +270,12 @@ public class Application : IApplication
 
         if (_Match.CurrentState == MatchState.WaitingForPlayersConnectedReady || _Match.CurrentState == MatchState.WaitingForPlayersReady)
         {
-            // Do not enforce locked teams during warmup for TeamMode: PlayerSelect
+
             if (_Match.MatchInfo.Config.TeamMode == TeamMode.PlayerSelect)
             {
-                // If player is already on team, make sure the match teams are updated
-                if (_Match.PlayerIsReady(playerController.SteamID) && (team == (int)Match.Contract.Team.Terrorist || team == (int)Match.Contract.Team.CounterTerrorist))
+                if ((team == (int)Match.Contract.Team.Terrorist || team == (int)Match.Contract.Team.CounterTerrorist))
                 {
-                    _Match.TryAddPlayer(new Player(playerController.SteamID));
+                    _Match.AssignPlayerBasedOnCurrentTeam(new Player(playerController.SteamID), team);
                 }
 
                 return;
@@ -850,19 +851,18 @@ public class Application : IApplication
 
     private HookResult OnClientCommandJoinTeam(CCSPlayerController? player, CommandInfo commandInfo)
     {
-        if (_Match == null
-            || (_Match.MatchInfo.RandomPlayersAllowed && _Match.CurrentState <= MatchState.WaitingForPlayersConnectedReady))
-        {
+        if (_Match == null)
             return HookResult.Continue;
-        }
 
-        _Logger.LogInformation("OnClientCommandJoinTeam was called!");
-        if (player != null && player.IsValid)
+        if (_Match.MatchInfo.Config.TeamMode == TeamMode.PlayerSelect &&
+            (_Match.CurrentState == MatchState.WaitingForPlayersConnectedReady ||
+            _Match.CurrentState == MatchState.WaitingForPlayersReady))
         {
-            _Logger.LogInformation("Player {PlayerName} tried to switch team!", player.PlayerName);
+            return HookResult.Continue; // allow jointeam
         }
 
-        return HookResult.Stop;
+        _Logger.LogInformation("Player {PlayerName} tried to switch team!", player?.PlayerName);
+        return HookResult.Stop; // block for other modes or states
     }
 
     #endregion

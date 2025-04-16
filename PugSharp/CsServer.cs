@@ -248,6 +248,9 @@ public class CsServer : ICsServer
     {
         _Dispatcher.NextWorldUpdate(() =>
         {
+
+            // InitializeWorkshopMapLookupAsync();
+            
             if (string.IsNullOrWhiteSpace(selectedMap))
             {
                 _Logger.LogInformation("The selected map is null or empty!");

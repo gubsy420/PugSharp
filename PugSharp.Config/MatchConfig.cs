@@ -14,7 +14,7 @@ public class MatchConfig
     public required Team Team2 { get; init; }
 
     [JsonPropertyName("matchid")]
-    public required string MatchId { get; init; }
+    public string MatchId { get; set; }
 
     [JsonPropertyName("num_maps")]
     public int NumMaps { get; init; } = 1;
