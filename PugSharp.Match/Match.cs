@@ -761,13 +761,15 @@ public class Match : IDisposable
             mapOptions.Add(new MenuOption(map, (opt, player) => BanMap(player, mapNumber)));
         }
 
+        _Dispatcher.NextWorldUpdate(() =>
+        {
+            ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteMapMenuHeader)), mapOptions);
 
-        ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteMapMenuHeader)), mapOptions);
+            DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
+            DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
 
-        DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
-        DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
-
-        GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+            GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+        });
 
         _VoteTimer.Start();
     }
@@ -815,11 +817,14 @@ public class Match : IDisposable
             new("CT", (opt, player) => VoteTeam(player, "CT")),
         };
 
-        ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteTeamMenuHeader)), mapOptions);
-        GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
+        _Dispatcher.NextWorldUpdate(() =>
+        {
+            ShowMenuToTeam(_CurrentMatchTeamToVote!, _TextHelper.GetText(nameof(Resources.PugSharp_Match_VoteTeamMenuHeader)), mapOptions);
+            GetOtherTeam(_CurrentMatchTeamToVote!).PrintToChat(_TextHelper.GetText(nameof(Resources.PugSharp_Match_WaitForOtherTeam)));
 
-        DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
-        DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
+            DoForAll(_CurrentMatchTeamToVote!.Players.Select(x => x.Player), p => p.Clan = _TextHelper.GetText(nameof(Resources.PugSharp_Match_VotingTag)));
+            DoForAll(GetOtherTeam(_CurrentMatchTeamToVote).Players.Select(x => x.Player), p => p.Clan = string.Empty);
+        });
 
         _VoteTimer.Start();
     }
